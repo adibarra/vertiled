@@ -315,40 +315,11 @@ export const AppComponent: React.FC = () => {
   }>();
   const [panOffset, setPanOffset] = useState<Coordinates>({ x: 0, y: 0 });
 
-  const wheelHandlerRef = useRef<Coordinates>();
-
   const ZOOM_LEVELS = [1, 2, 4, 8];
 
   const [zoomLevel, setZoomLevel] = useState(1);
 
   const clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max);
-
-  useEffect(() => {
-    const wheelHandler = (e: WheelEvent) => {
-      if (!e.target || (e.target as any)?.id !== MAIN_CANVAS_ID) {
-        return;
-      }
-      e.stopPropagation();
-      if (wheelHandlerRef.current) {
-        wheelHandlerRef.current = {
-          x: wheelHandlerRef.current.x + e.deltaX,
-          y: wheelHandlerRef.current.y + e.deltaY,
-        };
-      } else {
-        wheelHandlerRef.current = {
-          x: e.deltaX,
-          y: e.deltaY,
-        };
-      }
-      // zoom using scrollwheel
-      setZoomLevel(clamp(zoomLevel + (e.deltaY < 0 ? 1 : -1), 0, ZOOM_LEVELS.length - 1));
-    };
-
-    window.addEventListener("wheel", wheelHandler, { passive: true });
-    return () => {
-      window.removeEventListener("wheel", wheelHandler);
-    };
-  });
 
   return (
     <ThemeProvider theme={theme}>
@@ -468,63 +439,82 @@ export const AppComponent: React.FC = () => {
                 height={windowSize.height}
                 offset={panOffset}
                 tileSize={tileSize}
-                onWheel={(e) => {}}
-                onPointerDown={(c, ev, nonOffsetCoordinates) => {
-                  if (pointerDownRef.current) {
-                    return;
+                onWheel={
+                  (e) => {
+                    // zoom using mouse scroll wheel
+                    e.stopPropagation();
+                    const scrollDelta = (e.deltaY < 0 ? 1 : -1);
+                    const newZoomLevel = clamp(zoomLevel + scrollDelta, 0, ZOOM_LEVELS.length - 1);
+                    if (newZoomLevel === zoomLevel) return;
+                    // adjust pan offset so that the zoom is centered on the mouse position
+                    setPanOffset((prev) => {
+                      const zoom = scrollDelta * ZOOM_LEVELS[scrollDelta > 0 ? newZoomLevel : zoomLevel] * tileSize;
+                      return {
+                        x: prev.x + ((e.clientX / windowSize.width ) * (windowSize.width / zoom)),
+                        y: prev.y + ((e.clientY / windowSize.height) * (windowSize.height / zoom)),
+                      };
+                    });
+                    setZoomLevel(newZoomLevel);
                   }
-
-                  if (ev.button === 1) {
-                    ev.preventDefault();
-
-                    panStartRef.current = {
-                      down: nonOffsetCoordinates,
-                      originalOffset: panOffset,
-                    };
-                  } else if (
-                    ev.button === 0 &&
-                    editingMode === EditingMode.Clone
-                  ) {
-                    ev.preventDefault();
-
-                    startUndoGroup();
-                    const cursor = myState?.cursor;
-                    const defaultLayerId = R.last(selectedLayerIds);
-                    if (cursor && defaultLayerId !== undefined) {
-                      runAction((userId) => ({
-                        type: ActionType.PasteFromCursor,
-                        userId,
-                        defaultLayerId,
-                      }));
+                }
+                onPointerDown={
+                  (c, ev, nonOffsetCoordinates) => {
+                    if (pointerDownRef.current) {
+                      return;
                     }
-                  } else if (ev.button === 0 && EditingMode.Erase) {
-                    ev.preventDefault();
 
-                    startUndoGroup();
-                    runAction(() => ({
-                      type: ActionType.FillRectangle,
-                      layerIds: selectedLayerIds,
-                      rectangle: { x: c.x, y: c.y, width: 1, height: 1 },
-                      tileId: 0,
-                    }));
-                  } else if (
-                    ev.button === 2 &&
-                    editingMode === EditingMode.Clone
-                  ) {
-                    ev.preventDefault();
+                    if (ev.button === 1) {
+                      ev.preventDefault();
 
-                    handleStartSelect(c, setSelection);
-                  } else if (
-                    ev.button === 2 &&
-                    editingMode === EditingMode.Erase
-                  ) {
-                    ev.preventDefault();
+                      panStartRef.current = {
+                        down: nonOffsetCoordinates,
+                        originalOffset: panOffset,
+                      };
+                    } else if (
+                      ev.button === 0 &&
+                      editingMode === EditingMode.Clone
+                    ) {
+                      ev.preventDefault();
 
-                    handleStartSelect(c, setSelection);
+                      startUndoGroup();
+                      const cursor = myState?.cursor;
+                      const defaultLayerId = R.last(selectedLayerIds);
+                      if (cursor && defaultLayerId !== undefined) {
+                        runAction((userId) => ({
+                          type: ActionType.PasteFromCursor,
+                          userId,
+                          defaultLayerId,
+                        }));
+                      }
+                    } else if (ev.button === 0 && EditingMode.Erase) {
+                      ev.preventDefault();
+
+                      startUndoGroup();
+                      runAction(() => ({
+                        type: ActionType.FillRectangle,
+                        layerIds: selectedLayerIds,
+                        rectangle: { x: c.x, y: c.y, width: 1, height: 1 },
+                        tileId: 0,
+                      }));
+                    } else if (
+                      ev.button === 2 &&
+                      editingMode === EditingMode.Clone
+                    ) {
+                      ev.preventDefault();
+
+                      handleStartSelect(c, setSelection);
+                    } else if (
+                      ev.button === 2 &&
+                      editingMode === EditingMode.Erase
+                    ) {
+                      ev.preventDefault();
+
+                      handleStartSelect(c, setSelection);
+                    }
+
+                    pointerDownRef.current = { button: ev.button };
                   }
-
-                  pointerDownRef.current = { button: ev.button };
-                }}
+                }
                 onPointerUp={(c, ev) => {
                   if (!pointerDownRef.current) {
                     return;
