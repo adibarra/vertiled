@@ -321,16 +321,14 @@ export const AppComponent: React.FC = () => {
 
   const [zoomLevel, setZoomLevel] = useState(1);
 
+  const clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max);
+
   useEffect(() => {
     const wheelHandler = (e: WheelEvent) => {
       if (!e.target || (e.target as any)?.id !== MAIN_CANVAS_ID) {
         return;
       }
       e.stopPropagation();
-      if (e.ctrlKey) {
-        // TODO zoom with scroll and ctrl
-      }
-
       if (wheelHandlerRef.current) {
         wheelHandlerRef.current = {
           x: wheelHandlerRef.current.x + e.deltaX,
@@ -341,26 +339,11 @@ export const AppComponent: React.FC = () => {
           x: e.deltaX,
           y: e.deltaY,
         };
-        requestAnimationFrame(() => {
-          setPanOffset((old) => {
-            if (!wheelHandlerRef.current) {
-              throw new Error("wheelHandlerRef is not defined");
-            }
-            return {
-              x:
-                old.x +
-                (wheelHandlerRef.current.x * (4 / ZOOM_LEVELS[zoomLevel])) /
-                  tileSize,
-              y:
-                old.y +
-                (wheelHandlerRef.current.y * (4 / ZOOM_LEVELS[zoomLevel])) /
-                  tileSize,
-            };
-          });
-          wheelHandlerRef.current = undefined;
-        });
       }
+      // zoom using scrollwheel
+      setZoomLevel(clamp(zoomLevel + (e.deltaY < 0 ? 1 : -1), 0, ZOOM_LEVELS.length - 1));
     };
+
     window.addEventListener("wheel", wheelHandler, { passive: true });
     return () => {
       window.removeEventListener("wheel", wheelHandler);
@@ -406,7 +389,7 @@ export const AppComponent: React.FC = () => {
                 setEditingMode(EditingMode.Erase);
               }}
             >
-              Erease
+              Erase
             </Button>
 
             <Button
