@@ -1,19 +1,17 @@
 import {
   IconButton,
   List,
-  ListItem as UnstyledListItem,
+  ListItem,
   ListItemSecondaryAction,
   ListItemText,
   ListSubheader,
-  withStyles,
   Tooltip,
-} from "@material-ui/core";
+} from "@mui/material";
 import { ILayer } from "gl-tiled";
-import * as R from "ramda";
+import { last, reverse } from "lodash";
 import React from "react";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import { isLayerRegular } from "vertiled-shared";
-import { primaryColor } from "../consts";
 
 interface Props {
   layers: ILayer[];
@@ -21,20 +19,6 @@ interface Props {
   setSelectedLayerIds: (selectedLayerIds: number[]) => void;
   onToggleVisibility: (layerId: number, v: boolean) => void;
 }
-
-const ListItem = withStyles({
-  root: {
-    "&$selected": {
-      backgroundColor: primaryColor,
-      color: "white",
-    },
-    "&$selected:hover": {
-      backgroundColor: primaryColor,
-      color: "white",
-    },
-  },
-  selected: {},
-})(UnstyledListItem);
 
 function _LayerList({
   layers,
@@ -48,7 +32,7 @@ function _LayerList({
         subheader={<ListSubheader disableSticky>Layer</ListSubheader>}
         dense
       >
-        {R.reverse(layers).map((layer, i) => (
+        {reverse(layers).map((layer, i) => (
           <ListItem
             button
             dense
@@ -71,7 +55,7 @@ function _LayerList({
             <ListItemText
               primary={layer.name + (isLayerRegular(layer) ? "" : " (special)")}
               style={
-                layer.id === R.last(selectedLayerIds)
+                layer.id === last(selectedLayerIds)
                   ? { textDecoration: "underline" }
                   : undefined
               }

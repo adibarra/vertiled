@@ -1,10 +1,9 @@
 import {
-  makeStyles,
   MenuItem,
   Select,
   InputLabel,
   FormControl,
-} from "@material-ui/core";
+} from "@mui/material";
 import { ITileset } from "gl-tiled";
 import React, { useMemo, useState } from "react";
 import {
@@ -29,27 +28,6 @@ interface Props {
 
 const PREVIEW_DISPLAY_SIZE = 270;
 
-const useStyles = makeStyles((theme) => ({
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    width: "max-content",
-  },
-  previewContainer: {
-    display: "flex",
-    justifyContent: "center",
-    width: "300px",
-  },
-  previewWrapper: {
-    height: PREVIEW_DISPLAY_SIZE,
-    width: PREVIEW_DISPLAY_SIZE,
-    overflow: "scroll",
-  },
-  select: {
-    margin: theme.spacing(2),
-  },
-}));
-
 function _TileSetList({
   tilesets,
   selectedTileSetIndex,
@@ -57,8 +35,6 @@ function _TileSetList({
   imageStore,
   onSelectTiles,
 }: Props) {
-  const classes = useStyles();
-
   const selectedTileSet = tilesets[selectedTileSetIndex] as
     | ITileset
     | undefined;
@@ -114,8 +90,8 @@ function _TileSetList({
   );
 
   return (
-    <div className={classes.container}>
-      <FormControl variant="outlined" className={classes.select}>
+    <div>
+      <FormControl variant="outlined">
         <InputLabel id="tilesets-select-label">Tileset</InputLabel>
         <Select
           labelId="tilesets-select-label"
@@ -134,9 +110,9 @@ function _TileSetList({
       </FormControl>
 
       {tilesets[selectedTileSetIndex] && (
-        <div className={classes.previewContainer}>
+        <div>
           {tilemap && (
-            <div className={classes.previewWrapper}>
+            <div>
               <TilemapDisplay
                 imageStore={imageStore}
                 tilemap={tilemap}

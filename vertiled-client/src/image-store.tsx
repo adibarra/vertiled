@@ -19,11 +19,11 @@ export function useImageStore(baseUrl: string): ImageStore {
       imageResources.current.set(url, imgEl);
       imgEl.onload = () => {
         const assetCache: IAssetCache = {};
-        for (const [url, image] of imageResources.current.entries()) {
-          if (image.complete) {
-            assetCache[url] = image;
+        imageResources.current.forEach((img, url) => {
+          if (img.complete) {
+            assetCache[url] = img;
           }
-        }
+        });
         setAssetCache(assetCache);
       };
     }

@@ -1,4 +1,4 @@
-import * as R from "ramda";
+import { last, dropRight } from "lodash";
 import { useCallback, useRef, useState } from "react";
 import { unstable_batchedUpdates } from "react-dom";
 import { v4 as genId } from "uuid";
@@ -45,7 +45,7 @@ function reduceLog(
   let reducedStateWithRemoteLog: State;
   if (
     cachedRemoteStateRef.current &&
-    cachedRemoteStateRef.current?.lastEntryId === R.last(remoteLog)?.id
+    cachedRemoteStateRef.current?.lastEntryId === last(remoteLog)?.id
   ) {
     reducedStateWithRemoteLog = cachedRemoteStateRef.current.reducedState;
   } else {
@@ -55,7 +55,7 @@ function reduceLog(
 
   if (remoteLog.length) {
     cachedRemoteStateRef.current = {
-      lastEntryId: R.last(remoteLog)!.id,
+      lastEntryId: last(remoteLog)!.id,
       reducedState: reducedStateWithRemoteLog,
     };
   }
@@ -174,8 +174,8 @@ export function useUnilog(wsServerURL: string) {
       }
       case MessageType.ReportUndoServer: {
         undoneUndoKeys.current.add(msg.undoKey);
-        if (R.last(lastUndoGroupKeys.current) === msg.undoKey) {
-          lastUndoGroupKeys.current = R.dropLast(1, lastUndoGroupKeys.current);
+        if (last(lastUndoGroupKeys.current) === msg.undoKey) {
+          lastUndoGroupKeys.current = dropRight(lastUndoGroupKeys.current, 1);
         }
         cachedRemoteStateRef.current = {
           lastEntryId: msg.finalEntryId,
@@ -217,7 +217,7 @@ export function useUnilog(wsServerURL: string) {
     if (undoGroupKey.current) {
       throw new Error("undo called while creating an undo group");
     }
-    const undoKey = R.last(lastUndoGroupKeys.current);
+    const undoKey = last(lastUndoGroupKeys.current);
     if (!undoKey || !wsRef.current) {
       return;
     }

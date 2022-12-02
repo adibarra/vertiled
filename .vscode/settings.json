@@ -2,14 +2,16 @@
   "cSpell.words": [
     "Coord",
     "Descs",
-    "Tilesets",
-    "Unstyled",
+    "fontsource",
     "immer",
     "offsetx",
     "offsety",
     "tilelayer",
     "tilemap",
     "tileset",
+    "Tilesets",
+    "Unilog",
+    "Unstyled",
     "vertiled"
   ]
 }
