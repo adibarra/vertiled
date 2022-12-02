@@ -7,6 +7,7 @@ import {
   Divider,
   Drawer,
   IconButton,
+  ButtonGroup,
   ListSubheader,
   makeStyles,
   ThemeProvider,
@@ -24,7 +25,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { BiEraser, BiUndo, BiZoomIn, BiZoomOut } from "react-icons/bi";
+import { BiEraser, BiUndo, BiRedo } from "react-icons/bi";
 import { CgEditFlipH, CgEditFlipV } from "react-icons/cg";
 import { FaRegClone } from "react-icons/fa";
 import { FiMenu } from "react-icons/fi";
@@ -52,6 +53,7 @@ import { useWindowSize } from "../useWindowSize";
 import { LayerList } from "./LayerList";
 import { TilemapDisplay } from "./TilemapDisplay";
 import { TileSetList } from "./TileSetList";
+import { clamp } from "lodash";
 
 const serverOrigin =
   process.env.NODE_ENV === "development"
@@ -315,11 +317,33 @@ export const AppComponent: React.FC = () => {
   }>();
   const [panOffset, setPanOffset] = useState<Coordinates>({ x: 0, y: 0 });
 
-  const ZOOM_LEVELS = [1, 2, 4, 8];
-
-  const [zoomLevel, setZoomLevel] = useState(1);
-
-  const clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max);
+  const DEFAULT_ZOOM_LEVEL = 2;
+  const ZOOM_LEVELS = [0.5, 1, 2, 4, 8];
+  const [zoomLevel, setZoomLevel] = useState(DEFAULT_ZOOM_LEVEL);
+  const zoomIn = (zoomX: number, zoomY: number, times: number=1) => {
+    for (let i = 1; i < times+1; i++) {
+      setPanOffset((prev) => {
+        const zoom = ZOOM_LEVELS[zoomLevel + i] * tileSize;
+        return {
+          x: prev.x + zoomX * windowSize.width  / zoom,
+          y: prev.y + zoomY * windowSize.height / zoom,
+        };
+      });
+      setZoomLevel((prev) => prev + 1);
+    }
+  }
+  const zoomOut = (zoomX: number, zoomY: number, times: number=1) => {
+    for (let i = 0; i < times; i++) {
+      setPanOffset((prev) => {
+        const zoom = -ZOOM_LEVELS[zoomLevel - i] * tileSize;
+        return {
+          x: prev.x + zoomX * windowSize.width  / zoom,
+          y: prev.y + zoomY * windowSize.height / zoom,
+        };
+      });
+      setZoomLevel((prev) => prev - 1);
+    }
+  }
 
   return (
     <ThemeProvider theme={theme}>
@@ -439,82 +463,71 @@ export const AppComponent: React.FC = () => {
                 height={windowSize.height}
                 offset={panOffset}
                 tileSize={tileSize}
-                onWheel={
-                  (e) => {
-                    // zoom using mouse scroll wheel
-                    e.stopPropagation();
-                    const scrollDelta = (e.deltaY < 0 ? 1 : -1);
-                    const newZoomLevel = clamp(zoomLevel + scrollDelta, 0, ZOOM_LEVELS.length - 1);
-                    if (newZoomLevel === zoomLevel) return;
-                    // adjust pan offset so that the zoom is centered on the mouse position
-                    setPanOffset((prev) => {
-                      const zoom = scrollDelta * ZOOM_LEVELS[scrollDelta > 0 ? newZoomLevel : zoomLevel] * tileSize;
-                      return {
-                        x: prev.x + ((e.clientX / windowSize.width ) * (windowSize.width / zoom)),
-                        y: prev.y + ((e.clientY / windowSize.height) * (windowSize.height / zoom)),
-                      };
-                    });
-                    setZoomLevel(newZoomLevel);
+                onWheel={(e) => {
+                  e.stopPropagation();
+                  const scrollDelta = (e.deltaY < 0 ? 1 : -1);
+                  if (clamp(zoomLevel + scrollDelta, 0, ZOOM_LEVELS.length - 1) === zoomLevel) return;
+                  // adjust pan offset so that the zoom is centered on the mouse position
+                  const zoomX = e.clientX / windowSize.width;
+                  const zoomY = e.clientY / windowSize.height;
+                  scrollDelta > 0 ? zoomIn(zoomX, zoomY) : zoomOut(zoomX, zoomY);
+                }}
+                onPointerDown={(c, ev, nonOffsetCoordinates) => {
+                  if (pointerDownRef.current) {
+                    return;
                   }
-                }
-                onPointerDown={
-                  (c, ev, nonOffsetCoordinates) => {
-                    if (pointerDownRef.current) {
-                      return;
-                    }
 
-                    if (ev.button === 1) {
-                      ev.preventDefault();
+                  if (ev.button === 1) {
+                    ev.preventDefault();
 
-                      panStartRef.current = {
-                        down: nonOffsetCoordinates,
-                        originalOffset: panOffset,
-                      };
-                    } else if (
-                      ev.button === 0 &&
-                      editingMode === EditingMode.Clone
-                    ) {
-                      ev.preventDefault();
+                    panStartRef.current = {
+                      down: nonOffsetCoordinates,
+                      originalOffset: panOffset,
+                    };
+                  } else if (
+                    ev.button === 0 &&
+                    editingMode === EditingMode.Clone
+                  ) {
+                    ev.preventDefault();
 
-                      startUndoGroup();
-                      const cursor = myState?.cursor;
-                      const defaultLayerId = R.last(selectedLayerIds);
-                      if (cursor && defaultLayerId !== undefined) {
-                        runAction((userId) => ({
-                          type: ActionType.PasteFromCursor,
-                          userId,
-                          defaultLayerId,
-                        }));
-                      }
-                    } else if (ev.button === 0 && EditingMode.Erase) {
-                      ev.preventDefault();
-
-                      startUndoGroup();
-                      runAction(() => ({
-                        type: ActionType.FillRectangle,
-                        layerIds: selectedLayerIds,
-                        rectangle: { x: c.x, y: c.y, width: 1, height: 1 },
-                        tileId: 0,
+                    startUndoGroup();
+                    const cursor = myState?.cursor;
+                    const defaultLayerId = R.last(selectedLayerIds);
+                    if (cursor && defaultLayerId !== undefined) {
+                      runAction((userId) => ({
+                        type: ActionType.PasteFromCursor,
+                        userId,
+                        defaultLayerId,
                       }));
-                    } else if (
-                      ev.button === 2 &&
-                      editingMode === EditingMode.Clone
-                    ) {
-                      ev.preventDefault();
-
-                      handleStartSelect(c, setSelection);
-                    } else if (
-                      ev.button === 2 &&
-                      editingMode === EditingMode.Erase
-                    ) {
-                      ev.preventDefault();
-
-                      handleStartSelect(c, setSelection);
                     }
+                  } else if (ev.button === 0 && EditingMode.Erase) {
+                    ev.preventDefault();
 
-                    pointerDownRef.current = { button: ev.button };
+                    startUndoGroup();
+                    runAction(() => ({
+                      type: ActionType.FillRectangle,
+                      layerIds: selectedLayerIds,
+                      rectangle: { x: c.x, y: c.y, width: 1, height: 1 },
+                      tileId: 0,
+                    }));
+                  } else if (
+                    ev.button === 2 &&
+                    editingMode === EditingMode.Clone
+                  ) {
+                    ev.preventDefault();
+
+                    handleStartSelect(c, setSelection);
+                  } else if (
+                    ev.button === 2 &&
+                    editingMode === EditingMode.Erase
+                  ) {
+                    ev.preventDefault();
+
+                    handleStartSelect(c, setSelection);
                   }
-                }
+
+                  pointerDownRef.current = { button: ev.button };
+                }}
                 onPointerUp={(c, ev) => {
                   if (!pointerDownRef.current) {
                     return;
@@ -638,30 +651,40 @@ export const AppComponent: React.FC = () => {
                   }
                 }}
               />
-              <div className={classes.overlayUILayer}>
-                <Box m={2}>
-                  <IconButton
-                    aria-label="Zoom in"
-                    disabled={zoomLevel > ZOOM_LEVELS.length - 2}
-                    onClick={() => {
-                      if (zoomLevel <= ZOOM_LEVELS.length - 2) {
-                        setZoomLevel(zoomLevel + 1);
-                      }
-                    }}
+              <div className={classes.overlayUILayer} style={{display:'flex', flex:'column', alignItems:'end'}}>
+                <Box m={1}>
+                  <ButtonGroup
+                    size="small"
+                    variant="contained"
+                    aria-label="Zoom Controls"
                   >
-                    <BiZoomIn />
-                  </IconButton>
-                  <IconButton
-                    aria-label="Zoom Out"
-                    disabled={zoomLevel === 0}
-                    onClick={() => {
-                      if (zoomLevel > 0) {
-                        setZoomLevel(zoomLevel - 1);
-                      }
-                    }}
-                  >
-                    <BiZoomOut />
-                  </IconButton>
+                    <Button
+                      aria-label="Zoom In"
+                      disabled={zoomLevel === ZOOM_LEVELS.length - 1}
+                      onClick={() => zoomIn(0.5, 0.5)}
+                    >
+                      +
+                    </Button>
+                    <Button
+                    aria-label="Reset Zoom"
+                      onClick={() => {
+                        if (zoomLevel === DEFAULT_ZOOM_LEVEL) return;
+                        const zoomedIn = zoomLevel > DEFAULT_ZOOM_LEVEL;
+                        const times = Math.abs(zoomLevel - DEFAULT_ZOOM_LEVEL);
+                        if (zoomedIn) zoomOut(0.5, 0.5, times);
+                        else zoomIn(0.5, 0.5, times);
+                      }}
+                    >
+                      {zoomLevel}x
+                    </Button>
+                    <Button
+                      aria-label="Zoom Out"
+                      disabled={zoomLevel === 0}
+                      onClick={() => zoomOut(0.5, 0.5)}
+                    >
+                      -
+                    </Button>
+                  </ButtonGroup>
                 </Box>
               </div>
             </div>
@@ -697,12 +720,7 @@ export const AppComponent: React.FC = () => {
                 <div>Connected users: {state.users.length}</div>
                 <div>UserId: {userId}</div>
                 <Button
-                  onClick={() => {
-                    downloadFile(
-                      JSON.stringify(state.world, null, 2),
-                      "main.json",
-                    );
-                  }}
+                  onClick={() => downloadFile(JSON.stringify(state.world, null, 2),"main.json","application/json")}
                 >
                   Download as JSON
                 </Button>
