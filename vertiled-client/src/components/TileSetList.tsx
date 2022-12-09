@@ -108,7 +108,7 @@ function _TileSetList({
           ))}
         </Select>
       </FormControl>
-
+      <div style={{ height: 10 }} />
       {tilesets[selectedTileSetIndex] && (
         <div style={{ display: "flex", justifyContent: "center", width: "300px" }}>
           {tilemap && (
