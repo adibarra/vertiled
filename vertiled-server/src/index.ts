@@ -25,7 +25,7 @@ interface UndoPoint {
 const app = express();
 app.use(cors());
 
-app.use("/world", express.static("../test-world"));
+app.use("/world", express.static("../worlds/test-world"));
 app.use("/", express.static("../vertiled-client/build"));
 
 const log: LogEntry[] = [];
@@ -33,7 +33,7 @@ let state: State = {
   users: [],
   world: JSON.parse(
     // TODO: validate json, write importer
-    readFileSync("../test-world/main.json", { encoding: "utf-8" }),
+    readFileSync("../worlds/test-world/main.json", { encoding: "utf-8" }),
   ),
 };
 const undoneUndoKeys = new Set<string>();
