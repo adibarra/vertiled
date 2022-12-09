@@ -1,9 +1,8 @@
 import { Box, Button, ButtonGroup } from "@mui/material";
-import { FaRegClone } from "react-icons/fa";
-import { BiMenu, BiEraser } from "react-icons/bi";
+import { BiMenu, BiCopy, BiEraser } from "react-icons/bi";
 import { CgEditFlipH, CgEditFlipV } from "react-icons/cg";
 
-import { State } from "vertiled-shared";
+import { State, mirrorCursor, MirrorDirection, ActionType } from "vertiled-shared";
 
 enum EditingMode {
   Clone = "Clone",
@@ -13,10 +12,14 @@ enum EditingMode {
 interface Props {
   state: State;
   userId: string | undefined;
+  runAction: any;
   setEditingMode: (mode: EditingMode) => void;
 }
   
 export const TopControlBar: React.FC<Props> = ({
+  state,
+  userId,
+  runAction,
   setEditingMode,
 }) => {
   return (
@@ -42,17 +45,54 @@ export const TopControlBar: React.FC<Props> = ({
           aria-label="Drawing Controls"
         >
           <Button
-            startIcon={<FaRegClone size='20px'/>}
+            startIcon={<BiCopy/>}
             onClick={() => {setEditingMode(EditingMode.Clone)}}
           >
             Clone
           </Button>
-
           <Button
-            startIcon={<BiEraser size='20px'/>}
+            startIcon={<BiEraser/>}
             onClick={() => {setEditingMode(EditingMode.Erase)}}
           >
             Erase
+          </Button>
+          <Button
+            disabled={!state.users.find((u) => u.id === userId)?.cursor}
+            startIcon={<CgEditFlipH/>}
+            onClick={() => {
+              if (!userId) return;
+              const user = state.users.find((u) => u.id === userId);
+              const cursor = user?.cursor;
+              if (!cursor) return;
+              runAction((userId: string) => {
+                return {
+                  type: ActionType.SetCursor,
+                  userId,
+                  cursor: mirrorCursor(cursor, MirrorDirection.Horizontal),
+                };
+              });
+            }}
+          >
+            Flip H.
+          </Button>
+          <Button
+            disabled={!state.users.find((u) => u.id === userId)?.cursor}
+            startIcon={<CgEditFlipV/>}
+            onClick={() => {
+              if (!userId) return;
+              const user = state.users.find((u) => u.id === userId);
+              const cursor = user?.cursor;
+              if (!cursor) return;
+              runAction((userId: any) => {
+                return {
+                  type: ActionType.SetCursor,
+                  userId,
+                  cursor: mirrorCursor(cursor, MirrorDirection.Vertical),
+                };
+              });
+            }}
+          >
+            Flip V.
           </Button>
         </ButtonGroup>
       </Box>
