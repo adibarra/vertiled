@@ -9,7 +9,7 @@ import {
   createTheme,
   ThemeProvider,
 } from "@mui/material";
-import { clamp, last } from "lodash";
+import _ from "lodash";
 import produce from "immer";
 import {
   ActionType,
@@ -17,8 +17,6 @@ import {
   Coordinates,
   Cursor,
   extractCursor,
-  mirrorCursor,
-  MirrorDirection,
   Rectangle,
   tileSize,
 } from "vertiled-shared";
@@ -110,14 +108,14 @@ function App() {
     if (!selectedLayerIds.length && state.world.layers.length) {
       setSelectedLayerIds((selectedLayerIds) => {
         if (!selectedLayerIds.length && state.world.layers.length) {
-          return [last(state.world.layers)!.id];
+          return [_.last(state.world.layers)!.id];
         } else {
           return selectedLayerIds;
         }
       });
     }
   }, [selectedLayerIds, state.world.layers]);
-  const defaultLayerId = last(selectedLayerIds);
+  const defaultLayerId = _.last(selectedLayerIds);
 
   const selectionLayer = makeSelectionLayer(
     state.world.layers,
@@ -154,11 +152,10 @@ function App() {
       addCursor(myState.cursor, selectionTilesetInfo.mySelectionTileId);
     }
   }
-  worldForGlTiled.layers = worldForGlTiled.layers.filter(
-    (layer) => layer.visible,
-  );
+  worldForGlTiled.layers = worldForGlTiled.layers.filter((layer) => layer.visible);
 
   const windowSize = useWindowSize();
+  const drawerWidth = 300;
 
   const setSelection = (selection: Rectangle | undefined) => {
     runAction((userId) => ({
@@ -175,8 +172,7 @@ function App() {
         layerId,
         visibility,
       }));
-    },
-    [runAction],
+    }, [runAction]
   );
 
   const setCursor = useCallback(
@@ -186,18 +182,15 @@ function App() {
         userId,
         cursor,
       }));
-    },
-    [runAction],
+    }, [runAction]
   );
+
   const onTileSetListSetCursor = useCallback(
     (cursor: Cursor) => {
       setEditingMode(EditingMode.Clone);
       setCursor(cursor);
-    },
-    [setCursor],
+    }, [setCursor]
   );
-
-  const pointerDownRef = useRef<{ button: number }>();
 
   useEffect(() => {
     if (!userId) return;
@@ -223,10 +216,8 @@ function App() {
     }
   }, [runAction, selectedLayerIds, state.users, userId]);
 
-  const panStartRef = useRef<{
-    down: Coordinates;
-    originalOffset: Coordinates;
-  }>();
+  const pointerDownRef = useRef<{ button: number }>();
+  const panStartRef = useRef<{ down: Coordinates; originalOffset: Coordinates; }>();
   const [panOffset, setPanOffset] = useState<Coordinates>({ x: 0, y: 0 });
 
   const DEFAULT_ZOOM_LEVEL = 2;
@@ -237,7 +228,7 @@ function App() {
       setPanOffset((prev) => {
         const zoom = ZOOM_LEVELS[zoomLevel + i] * tileSize;
         return {
-          x: prev.x + zoomX * windowSize.width  / zoom,
+          x: prev.x + zoomX * (windowSize.width-drawerWidth)  / zoom,
           y: prev.y + zoomY * windowSize.height / zoom,
         };
       });
@@ -249,7 +240,7 @@ function App() {
       setPanOffset((prev) => {
         const zoom = -ZOOM_LEVELS[zoomLevel - i] * tileSize;
         return {
-          x: prev.x + zoomX * windowSize.width  / zoom,
+          x: prev.x + zoomX * (windowSize.width-drawerWidth)  / zoom,
           y: prev.y + zoomY * windowSize.height / zoom,
         };
       });
@@ -275,201 +266,176 @@ function App() {
         id={MAIN_CANVAS_ID}
         imageStore={imageStore}
         tilemap={worldForGlTiled}
-        width={windowSize.width}
+        width={windowSize.width - drawerWidth}
         height={windowSize.height}
         offset={panOffset}
         tileSize={tileSize}
         onWheel={(e) => {
           e.stopPropagation();
           const scrollDelta = (e.deltaY < 0 ? 1 : -1);
-          if (clamp(zoomLevel + scrollDelta, 0, ZOOM_LEVELS.length - 1) === zoomLevel) return;
+          if (_.clamp(zoomLevel + scrollDelta, 0, ZOOM_LEVELS.length - 1) === zoomLevel) return;
           // adjust pan offset so that the zoom is centered on the mouse position
-          const zoomX = e.clientX / windowSize.width;
+          const zoomX = e.clientX / (windowSize.width-drawerWidth);
           const zoomY = e.clientY / windowSize.height;
           scrollDelta > 0 ? zoomIn(zoomX, zoomY) : zoomOut(zoomX, zoomY);
         }}
         onPointerDown={(c, ev, nonOffsetCoordinates) => {
-          if (pointerDownRef.current) {
-            return;
-          }
-
-          if (ev.button === 1) {
-            ev.preventDefault();
-
-            panStartRef.current = {
-              down: nonOffsetCoordinates,
-              originalOffset: panOffset,
-            };
-          } else if (
-            ev.button === 0 &&
-            editingMode === EditingMode.Clone
-          ) {
-            ev.preventDefault();
-
-            startUndoGroup();
-            const cursor = myState?.cursor;
-            const defaultLayerId = last(selectedLayerIds);
-            if (cursor && defaultLayerId !== undefined) {
-              runAction((userId) => ({
-                type: ActionType.PasteFromCursor,
-                userId,
-                defaultLayerId,
-              }));
-            }
-          } else if (ev.button === 0 && EditingMode.Erase) {
-            ev.preventDefault();
-
-            startUndoGroup();
-            runAction(() => ({
-              type: ActionType.FillRectangle,
-              layerIds: selectedLayerIds,
-              rectangle: { x: c.x, y: c.y, width: 1, height: 1 },
-              tileId: 0,
-            }));
-          } else if (
-            ev.button === 2 &&
-            editingMode === EditingMode.Clone
-          ) {
-            ev.preventDefault();
-
-            handleStartSelect(c, setSelection);
-          } else if (
-            ev.button === 2 &&
-            editingMode === EditingMode.Erase
-          ) {
-            ev.preventDefault();
-
-            handleStartSelect(c, setSelection);
-          }
-
-          pointerDownRef.current = { button: ev.button };
-        }}
-        onPointerUp={(c, ev) => {
-          if (!pointerDownRef.current) {
-            return;
-          }
-
-          if (
-            editingMode === EditingMode.Clone &&
-            pointerDownRef.current.button === 0
-          ) {
-            ev.preventDefault();
-
-            endUndoGroup();
-          } else if (
-            editingMode === EditingMode.Clone &&
-            pointerDownRef.current.button === 2
-          ) {
-            ev.preventDefault();
-
-            handleEndSelect(setSelection);
-
-            const selection = myState?.selection;
-            if (
-              selection &&
-              selection.width >= 1 &&
-              selection.height >= 1
-            ) {
-              const cursor = extractCursor(state.world, selection);
-              cursor.contents = cursor.contents.filter(
-                (c) =>
-                  c.layerId === undefined ||
-                  selectedLayerIds.includes(c.layerId),
-              );
-              setCursor(cursor);
-            }
-          } else if (
-            editingMode === EditingMode.Erase &&
-            pointerDownRef.current.button === 0
-          ) {
-            ev.preventDefault();
-
-            endUndoGroup();
-          } else if (
-            editingMode === EditingMode.Erase &&
-            pointerDownRef.current.button === 2
-          ) {
-            ev.preventDefault();
-
-            const rectangleToErase = myState?.selection;
-            if (rectangleToErase) {
-              startUndoGroup();
-              runAction(() => ({
-                type: ActionType.FillRectangle,
-                layerIds: selectedLayerIds,
-                rectangle: rectangleToErase,
-                tileId: 0,
-              }));
-              endUndoGroup();
-            }
-            handleEndSelect(setSelection);
-          }
-
-          pointerDownRef.current = undefined;
-          panStartRef.current = undefined;
-        }}
-        onPointerMove={(c, ev, nonOffsetCoordinates) => {
-          if (panStartRef.current) {
-            setPanOffset({
-              x:
-                panStartRef.current.originalOffset.x +
-                panStartRef.current.down.x -
-                nonOffsetCoordinates.x,
-              y:
-                panStartRef.current.originalOffset.y +
-                panStartRef.current.down.y -
-                nonOffsetCoordinates.y,
-            });
-          } else if (editingMode === EditingMode.Clone) {
-            handleMoveSelect(c, myState?.selection, setSelection);
-
-            const oldCursor = myState?.cursor;
-            if (oldCursor) {
-              const newFrameStart: Coordinates = {
-                x: c.x - (oldCursor.initialFrame.width - 1),
-                y: c.y - (oldCursor.initialFrame.height - 1),
-              };
-              if (
-                newFrameStart.x !== oldCursor.frame.x ||
-                newFrameStart.y !== oldCursor.frame.y
-              ) {
-                runAction((userId) => ({
-                  type: ActionType.SetCursorOffset,
-                  userId,
-                  offset: newFrameStart,
-                }));
-                if (pointerDownRef.current) {
-                  const defaultLayerId = last(selectedLayerIds);
-                  if (defaultLayerId !== undefined) {
+          ev.preventDefault();
+          if (pointerDownRef.current) return;
+          switch (ev.button) {
+            case 0: // left click
+              switch (editingMode) {
+                case EditingMode.Clone:
+                  startUndoGroup();
+                  const cursor = myState?.cursor;
+                  const defaultLayerId = _.last(selectedLayerIds);
+                  if (cursor && defaultLayerId !== undefined) {
                     runAction((userId) => ({
                       type: ActionType.PasteFromCursor,
                       userId,
                       defaultLayerId,
                     }));
                   }
-                }
+                  break;
+                case EditingMode.Erase:
+                  startUndoGroup();
+                  runAction(() => ({
+                    type: ActionType.FillRectangle,
+                    layerIds: selectedLayerIds,
+                    rectangle: { x: c.x, y: c.y, width: 1, height: 1 },
+                    tileId: 0,
+                  }));
+                  break;
               }
+              break;
+            case 1: // middle click
+              panStartRef.current = {
+                down: nonOffsetCoordinates,
+                originalOffset: panOffset,
+              };
+              break;
+            case 2: // right click
+              switch (editingMode) {
+                case EditingMode.Clone:
+                  handleStartSelect(c, setSelection);
+                  break;
+                case EditingMode.Erase:
+                  handleStartSelect(c, setSelection);
+                  break;
+              }
+              break;
+          }
+          pointerDownRef.current = { button: ev.button };
+        }}
+        onPointerUp={(c, ev) => {
+          ev.preventDefault();
+          if (!pointerDownRef.current) return;
+          switch (pointerDownRef.current.button) {
+            case 0: // left click
+              switch (editingMode) {
+                case EditingMode.Clone:
+                  endUndoGroup();
+                  break;
+                case EditingMode.Erase:
+                  endUndoGroup();
+                  break;
+              }
+              break;
+            case 1: // middle click
+              break;
+            case 2: // right click
+              switch (editingMode) {
+                case EditingMode.Clone:
+                  handleEndSelect(setSelection);
+                  const selection = myState?.selection;
+                  if (selection && selection.width >= 1 && selection.height >= 1) {
+                    const cursor = extractCursor(state.world, selection);
+                    cursor.contents = cursor.contents.filter((c) => c.layerId === undefined || selectedLayerIds.includes(c.layerId));
+                    setCursor(cursor);
+                  }
+                  break;
+                case EditingMode.Erase:
+                  const rectangleToErase = myState?.selection;
+                  if (rectangleToErase) {
+                    startUndoGroup();
+                    runAction(() => ({
+                      type: ActionType.FillRectangle,
+                      layerIds: selectedLayerIds,
+                      rectangle: rectangleToErase,
+                      tileId: 0,
+                    }));
+                    endUndoGroup();
+                  }
+                  handleEndSelect(setSelection);
+                  break;
+              }
+              break;
+          }
+          pointerDownRef.current = undefined;
+          panStartRef.current = undefined;
+        }}
+        onPointerMove={(c, ev, nonOffsetCoordinates) => {
+          if (panStartRef.current) {
+            setPanOffset({
+              x: panStartRef.current.originalOffset.x + panStartRef.current.down.x - nonOffsetCoordinates.x,
+              y: panStartRef.current.originalOffset.y + panStartRef.current.down.y - nonOffsetCoordinates.y,
+            });
+          } else {
+            switch (editingMode) {
+              case EditingMode.Clone:
+                handleMoveSelect(c, myState?.selection, setSelection);
+                const oldCursor = myState?.cursor;
+                if (oldCursor) {
+                  const newFrameStart: Coordinates = {
+                    x: c.x - (oldCursor.initialFrame.width - 1),
+                    y: c.y - (oldCursor.initialFrame.height - 1),
+                  };
+                  if (
+                    newFrameStart.x !== oldCursor.frame.x ||
+                    newFrameStart.y !== oldCursor.frame.y
+                  ) {
+                    runAction((userId) => ({
+                      type: ActionType.SetCursorOffset,
+                      userId,
+                      offset: newFrameStart,
+                    }));
+                    if (pointerDownRef.current) {
+                      const defaultLayerId = _.last(selectedLayerIds);
+                      if (defaultLayerId !== undefined) {
+                        runAction((userId) => ({
+                          type: ActionType.PasteFromCursor,
+                          userId,
+                          defaultLayerId,
+                        }));
+                      }
+                    }
+                  }
+                }
+                break;
+              case EditingMode.Erase:
+                if (pointerDownRef.current?.button === 0) {
+                  runAction(() => ({
+                    type: ActionType.FillRectangle,
+                    layerIds: selectedLayerIds,
+                    rectangle: { x: c.x, y: c.y, width: 1, height: 1 },
+                    tileId: 0,
+                  }));
+                  setSelection({ x: c.x, y: c.y, width: 1, height: 1 });
+                } else if (pointerDownRef.current?.button === 2) {
+                  handleMoveSelect(c, myState?.selection, setSelection);
+                } else if (!pointerDownRef.current) {
+                  setSelection({ x: c.x, y: c.y, width: 1, height: 1 });
+                }
+                break;
             }
-          } else if (editingMode === EditingMode.Erase) {
-            if (pointerDownRef.current?.button === 0) {
-              runAction(() => ({
-                type: ActionType.FillRectangle,
-                layerIds: selectedLayerIds,
-                rectangle: { x: c.x, y: c.y, width: 1, height: 1 },
-                tileId: 0,
-              }));
-              setSelection({ x: c.x, y: c.y, width: 1, height: 1 });
-            } else if (pointerDownRef.current?.button === 2) {
-              handleMoveSelect(c, myState?.selection, setSelection);
-            } else if (!pointerDownRef.current) {
-              setSelection({ x: c.x, y: c.y, width: 1, height: 1 });
-            }
+              
           }
         }}
       />
       <TopControlBar
         state={state}
         userId={userId}
+        runAction={runAction}
         setEditingMode={setEditingMode}
       />
       <BottomControlBar
