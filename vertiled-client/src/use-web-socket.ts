@@ -57,7 +57,6 @@ export function useWebSocket(
 
         wsRef.current.onclose = function (ev: CloseEvent): void {
           console.warn("socket disconnected", ev);
-          wsRef.current = undefined;
           resolveLoopBlocker(undefined);
         };
 
