@@ -8,7 +8,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import { ILayer } from "gl-tiled";
-import { last, reverse } from "lodash";
+import _ from "lodash";
 import React from "react";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import { isLayerRegular } from "vertiled-shared";
@@ -32,7 +32,7 @@ function _LayerList({
         subheader={<ListSubheader disableSticky>Layer</ListSubheader>}
         dense
       >
-        {reverse(layers).map((layer, i) => (
+        {layers.map((layer, i) => (
           <ListItem
             button
             dense
@@ -55,7 +55,7 @@ function _LayerList({
             <ListItemText
               primary={layer.name + (isLayerRegular(layer) ? "" : " (special)")}
               style={
-                layer.id === last(selectedLayerIds)
+                layer.id === _.last(selectedLayerIds)
                   ? { textDecoration: "underline" }
                   : undefined
               }
