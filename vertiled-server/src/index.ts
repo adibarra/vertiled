@@ -95,7 +95,7 @@ wss.on("connection", (ws) => {
         let newEntry: LogEntry;
         try {
           newEntry = pushToLog(msg.entry.action, msg.entry.undoKey);
-        } catch (err) {
+        } catch (err: any) {
           sendToSelf({
             type: MessageType.RejectEntryServer,
             entryId: msg.entry.id,
