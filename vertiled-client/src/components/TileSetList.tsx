@@ -26,8 +26,6 @@ interface Props {
   onSelectTiles: (cursor: Cursor) => void;
 }
 
-const PREVIEW_DISPLAY_SIZE = 270;
-
 function _TileSetList({
   tilesets,
   selectedTileSetIndex,
@@ -80,6 +78,8 @@ function _TileSetList({
       ? tilemap.layers[0]
       : undefined;
 
+  const PREVIEW_DISPLAY_SIZE = 270;
+
   const previewWidth = Math.max(
     (dataLayer?.width ?? 10) * 32,
     PREVIEW_DISPLAY_SIZE,
@@ -90,8 +90,8 @@ function _TileSetList({
   );
 
   return (
-    <div>
-      <FormControl variant="outlined">
+    <div style={{ display:'flex', flexDirection:'column', width:'max-content' }}>
+      <FormControl variant="outlined" style={{ margin: 2 }}>
         <InputLabel id="tilesets-select-label">Tileset</InputLabel>
         <Select
           labelId="tilesets-select-label"
@@ -110,9 +110,9 @@ function _TileSetList({
       </FormControl>
 
       {tilesets[selectedTileSetIndex] && (
-        <div>
+        <div style={{ display: "flex", justifyContent: "center", width: "300px" }}>
           {tilemap && (
-            <div>
+            <div style={{ height: PREVIEW_DISPLAY_SIZE, width: PREVIEW_DISPLAY_SIZE, overflow: "scroll" }}>
               <TilemapDisplay
                 imageStore={imageStore}
                 tilemap={tilemap}
