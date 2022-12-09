@@ -436,6 +436,7 @@ function App() {
         state={state}
         userId={userId}
         runAction={runAction}
+        editingMode={editingMode}
         setEditingMode={setEditingMode}
       />
       <BottomControlBar

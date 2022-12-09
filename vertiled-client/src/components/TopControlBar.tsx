@@ -13,6 +13,7 @@ interface Props {
   state: State;
   userId: string | undefined;
   runAction: any;
+  editingMode: EditingMode;
   setEditingMode: (mode: EditingMode) => void;
 }
   
@@ -20,6 +21,7 @@ export const TopControlBar: React.FC<Props> = ({
   state,
   userId,
   runAction,
+  editingMode,
   setEditingMode,
 }) => {
   return (
@@ -33,12 +35,13 @@ export const TopControlBar: React.FC<Props> = ({
           <Button
             aria-label="menu"
             onClick={() => {}}
+            title="Menu"
           >
             <BiMenu size='20px'/>ㅤ
           </Button>
         </ButtonGroup>
       </Box>
-      <Box m={2} ml={0}>
+      <Box m={2} ml={0} mr={1}>
         <ButtonGroup
           size="small"
           variant="contained"
@@ -47,22 +50,33 @@ export const TopControlBar: React.FC<Props> = ({
           <Button
             startIcon={<BiCopy/>}
             onClick={() => {setEditingMode(EditingMode.Clone)}}
+            variant={editingMode === EditingMode.Clone ? "contained" : "outlined"}
+            title="Clone"
           >
             Clone
           </Button>
           <Button
             startIcon={<BiEraser/>}
             onClick={() => {setEditingMode(EditingMode.Erase)}}
+            variant={editingMode === EditingMode.Erase ? "contained" : "outlined"}
+            title="Erase"
           >
             Erase
           </Button>
+        </ButtonGroup>
+      </Box>
+      <Box m={2} ml={0} mr={1}>
+        <ButtonGroup
+          size="small"
+          variant="contained"
+          aria-label="Drawing Controls"
+        >
           <Button
             disabled={!state.users.find((u) => u.id === userId)?.cursor}
             startIcon={<CgEditFlipH/>}
             onClick={() => {
               if (!userId) return;
-              const user = state.users.find((u) => u.id === userId);
-              const cursor = user?.cursor;
+              const cursor = state.users.find((u) => u.id === userId)?.cursor;
               if (!cursor) return;
               runAction((userId: string) => {
                 return {
@@ -72,6 +86,7 @@ export const TopControlBar: React.FC<Props> = ({
                 };
               });
             }}
+            title="Flip Horizontal"
           >
             Flip H.
           </Button>
@@ -80,8 +95,7 @@ export const TopControlBar: React.FC<Props> = ({
             startIcon={<CgEditFlipV/>}
             onClick={() => {
               if (!userId) return;
-              const user = state.users.find((u) => u.id === userId);
-              const cursor = user?.cursor;
+              const cursor = state.users.find((u) => u.id === userId)?.cursor;
               if (!cursor) return;
               runAction((userId: any) => {
                 return {
@@ -91,6 +105,7 @@ export const TopControlBar: React.FC<Props> = ({
                 };
               });
             }}
+            title="Flip Vertical"
           >
             Flip V.
           </Button>
