@@ -1,5 +1,4 @@
 import { Drawer, Divider, Box, Button, ListSubheader } from "@mui/material";
-import { ILayer, ITileset } from "gl-tiled";
 import downloadFile from "js-file-download";
 
 import { Cursor, State } from "vertiled-shared";
@@ -32,12 +31,20 @@ export const SidePanel: React.FC<Props> = ({
   imageStore,
   onTileSetListSetCursor,
 }) => {
+
+  const drawerWidth = 300;
+
   return (
     <Drawer
       anchor="right"
-      open={true}
-      variant="persistent"
-      sx={{ flexShrink: 1 }}
+      variant="permanent"
+      sx={{
+        width: drawerWidth,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
+          width: drawerWidth,
+        },
+      }}
     >
       <LayerList
         selectedLayerIds={selectedLayerIds}
@@ -45,7 +52,7 @@ export const SidePanel: React.FC<Props> = ({
         layers={state.world.layers}
         onToggleVisibility={setLayerVisibility}
       />
-      <Divider></Divider>
+      <Divider sx={{ mb: 2 }} />
       <TileSetList
         tilesets={state.world.tilesets}
         imageStore={imageStore}
@@ -53,7 +60,7 @@ export const SidePanel: React.FC<Props> = ({
         selectedTileSetIndex={selectedTileSet}
         onSelectTiles={onTileSetListSetCursor}
       />
-      <Divider />
+      <Divider sx={{ mt: 2 }} />
       <ListSubheader disableSticky>Debug</ListSubheader>
       <Box px={2}>
         <div>Connected users: {state.users.length}</div>
